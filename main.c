@@ -6,6 +6,7 @@
 #include "power.h"
 
 static volatile u16 s_1ms_tick = 0;
+static volatile bit s_1ms_flag = 0;
 
 static void Timer0_Init(void);
 static void System_Init(void);
@@ -29,9 +30,10 @@ static void Timer0_Init(void)
 
 /**
  * @brief  Timer0中断服务程序 - 系统时钟基准
- * @note   每1ms执行一次
+ * @note   每1ms执行一次（由硬件定时器精确保证）
  *         功能：
  *         - 更新系统1ms计时器
+ *         - 设置1ms调度标志位（供主循环使用）
  *         - 更新空闲计时器（用于自动关机判断）
  */
 void Timer0_ISR(void) interrupt 1
@@ -40,6 +42,7 @@ void Timer0_ISR(void) interrupt 1
     TL0 = TIMER0_RELOAD_L;
     
     s_1ms_tick++;
+    s_1ms_flag = 1;
     
     if (Power_GetState() == POWER_STATE_ON)
     {
@@ -184,20 +187,22 @@ static void Update_LED_BasedOnCharger(void)
 }
 
 /**
- * @brief  主函数 - 无限循环
+ * @brief  主函数 - 无限循环（基于1ms精确调度）
  * @note   主循环结构：
  *         ┌────────────────────────────────────────────┐
  *         │ while(1) {                                 │
  *         │   if (POWER_OFF) {                         │
  *         │     EnterStopMode(); // 低功耗等待唤醒      │
- *         │     处理唤醒事件;                          │
- *         │   } else {                                 │
- *         │     Button_Poll();   // 1ms轮询             │
- *         │     Power_Poll();    // 1ms轮询             │
- *         │     Motor_Poll();    // 1ms轮询             │
- *         │     LED_Poll();      // 1ms轮询             │
+ *         │     处理唤醒事件;                           │
+ *         │   } else if (1ms标志) {                    │
+ *         │     清除1ms标志;                           │
+ *         │     Button_Poll();   // 严格1ms轮询         │
+ *         │     Power_Poll();    // 严格1ms轮询         │
+ *         │     Motor_Poll();    // 严格1ms轮询         │
+ *         │     LED_Poll();      // 严格1ms轮询         │
  *         │     UpdateLED();     // 充电状态指示更新     │
  *         │   }                                         │
+ *         │   // CPU空闲或做其他任务                     │
  *         │ }                                           │
  *         └────────────────────────────────────────────┘
  * 
@@ -226,28 +231,33 @@ void main(void)
                 break;
                 
             case POWER_STATE_ON:
-                Button_Poll();
-                button_event = Button_GetEvent();
-                
-                if (button_event != BUTTON_EVENT_NONE)
+                if (s_1ms_flag)
                 {
-                    Handle_ButtonEvent(button_event);
-                    Button_ClearEvent();
-                }
-                
-                Power_Poll();
-                
-                if (Power_GetState() == POWER_STATE_ON)
-                {
-                    Motor_Poll();
-                    LED_Poll();
-                    Update_LED_BasedOnCharger();
+                    s_1ms_flag = 0;
                     
-                    if (Power_GetState() == POWER_STATE_OFF)
+                    Button_Poll();
+                    button_event = Button_GetEvent();
+                    
+                    if (button_event != BUTTON_EVENT_NONE)
                     {
-                        LED_SetState(LED_STATE_OFF);
-                        Motor_Control(0);
-                        Motor_SetMode(MOTOR_MODE_IDLE);
+                        Handle_ButtonEvent(button_event);
+                        Button_ClearEvent();
+                    }
+                    
+                    Power_Poll();
+                    
+                    if (Power_GetState() == POWER_STATE_ON)
+                    {
+                        Motor_Poll();
+                        LED_Poll();
+                        Update_LED_BasedOnCharger();
+                        
+                        if (Power_GetState() == POWER_STATE_OFF)
+                        {
+                            LED_SetState(LED_STATE_OFF);
+                            Motor_Control(0);
+                            Motor_SetMode(MOTOR_MODE_IDLE);
+                        }
                     }
                 }
                 break;
