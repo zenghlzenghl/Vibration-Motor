@@ -3,7 +3,7 @@
 
 #include "gpio.h"
 #include "config.h"
-#include <stdint.h>
+//#include <stdint.h>
 
 typedef enum {
     LED_STATE_OFF = 0,

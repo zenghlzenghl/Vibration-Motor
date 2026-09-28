@@ -24,7 +24,7 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
-#include <stdint.h>
+//#include <stdint.h>
 
 /* ================================================================== */
 /*                    第一部分：系统时钟配置                          */

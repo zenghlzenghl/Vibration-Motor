@@ -1,13 +1,13 @@
 #include "motor.h"
 
 static Motor_Mode_t s_motor_mode = MOTOR_MODE_IDLE;
-static uint8_t s_motor_running = 0;
-static uint16_t s_pattern_timer = 0;
-static uint8_t s_pattern_step = 0;
-static uint8_t s_ramp_duty = 0;
-static uint8_t s_random_seed = 123;
+static u8 s_motor_running = 0;
+static u16 s_pattern_timer = 0;
+static u8 s_pattern_step = 0;
+static u8 s_ramp_duty = 0;
+static u8 s_random_seed = 123;
 
-static uint8_t Get_Random_Byte(void);
+static u8 Get_Random_Byte(void);
 void Motor_Mode_Idle(void);
 void Motor_Mode_Continuous(void);
 void Motor_Mode_Interval_1S(void);
@@ -20,19 +20,19 @@ void Motor_Mode_Ramp_Down(void);
 void Motor_Mode_Random(void);
 
 /**
- * @brief  生成伪随机数（线性同余算法）
+ * @brief  伪随机数生成器（线性同余算法）
  * @return 0-255范围内的随机字节
- * @note   使用静态种子，每次调用更新种子值
+ * @note   使用静态种子，每次调用更新种子
  */
-static uint8_t Get_Random_Byte(void)
+static u8 Get_Random_Byte(void)
 {
     s_random_seed = s_random_seed * 1103515245 + 12345;
-    return (uint8_t)(s_random_seed >> 16);
+    return (u8)(s_random_seed >> 16);
 }
 
 /**
  * @brief  马达模块初始化
- * @note   配置P0.3为输出模式，初始状态为关闭
+ * @note   配置P0.3为推挽输出，初始状态为关闭
  */
 void Motor_Init(void)
 {
@@ -50,25 +50,29 @@ void Motor_Init(void)
  * @brief  直接控制马达开关
  * @param  enable: 1=开启马达, 0=关闭马达
  */
-void Motor_Control(uint8_t enable)
+void Motor_Control(u8 enable)
 {
-    if (enable) {
+    if (enable)
+    {
         GPIO_WritePin(MOTOR_PIN, GPIO_LEVEL_HIGH);
         s_motor_running = 1;
-    } else {
+    }
+    else
+    {
         GPIO_WritePin(MOTOR_PIN, GPIO_LEVEL_LOW);
         s_motor_running = 0;
     }
 }
 
 /**
- * @brief  设置马达振动模式
- * @param  mode: 目标模式（见Motor_Mode_t枚举）
- * @note   切换模式时会重置所有内部状态（定时器、步骤、占空比）
+ * @brief  设置振动模式
+ * @param  mode: 目标模式（参考Motor_Mode_t枚举）
+ * @note   切换模式时会重置所有内部状态（计时器、步进、占空比）
  */
 void Motor_SetMode(Motor_Mode_t mode)
 {
-    if (mode >= MOTOR_MODE_COUNT) {
+    if (mode >= MOTOR_MODE_COUNT)
+    {
         mode = MOTOR_MODE_IDLE;
     }
     
@@ -77,14 +81,15 @@ void Motor_SetMode(Motor_Mode_t mode)
     s_pattern_timer = 0;
     s_ramp_duty = 0;
     
-    if (mode == MOTOR_MODE_IDLE) {
+    if (mode == MOTOR_MODE_IDLE)
+    {
         Motor_Control(0);
     }
 }
 
 /**
- * @brief  获取当前马达模式
- * @return 当前振动模式
+ * @brief  获取当前振动模式
+ * @return 当前模式
  */
 Motor_Mode_t Motor_GetMode(void)
 {
@@ -93,34 +98,38 @@ Motor_Mode_t Motor_GetMode(void)
 
 /**
  * @brief  模式0：空闲模式
- * @note   马达保持关闭状态
+ * @note   始终保持关闭状态
  */
 void Motor_Mode_Idle(void)
 {
-    if (s_motor_running == 1) {
+    if (s_motor_running == 1)
+    {
         Motor_Control(0);
     }
 }
 
 /**
- * @brief  模式1：持续振动模式
- * @note   马达持续开启，直到切换到其他模式
+ * @brief  模式1：连续模式
+ * @note   马达持续振动直到切换到其他模式
  */
 void Motor_Mode_Continuous(void)
 {
-    if (s_motor_running == 0) {
+    if (s_motor_running == 0)
+    {
         Motor_Control(1);
     }
 }
 
 /**
- * @brief  模式2：1秒周期振动
- * @note   时序：500ms振动 + 500ms停止，循环往复
+ * @brief  模式2：间隔1秒模式
+ * @note   时序：500ms振动 + 500ms停止（循环）
  */
 void Motor_Mode_Interval_1S(void)
 {
-    if (s_pattern_timer == 0) {
-        switch (s_pattern_step) {
+    if (s_pattern_timer == 0)
+    {
+        switch (s_pattern_step)
+        {
             case 0:
                 Motor_Control(1);
                 s_pattern_timer = 500;
@@ -133,19 +142,23 @@ void Motor_Mode_Interval_1S(void)
                 s_pattern_step = 0;
                 break;
         }
-    } else {
+    }
+    else
+    {
         s_pattern_timer--;
     }
 }
 
 /**
- * @brief  模式3：2秒周期振动
- * @note   时序：500ms振动 + 1500ms停止，循环往复
+ * @brief  模式3：间隔2秒模式
+ * @note   时序：500ms振动 + 1500ms停止（循环）
  */
 void Motor_Mode_Interval_2S(void)
 {
-    if (s_pattern_timer == 0) {
-        switch (s_pattern_step) {
+    if (s_pattern_timer == 0)
+    {
+        switch (s_pattern_step)
+        {
             case 0:
                 Motor_Control(1);
                 s_pattern_timer = 500;
@@ -158,20 +171,24 @@ void Motor_Mode_Interval_2S(void)
                 s_pattern_step = 0;
                 break;
         }
-    } else {
+    }
+    else
+    {
         s_pattern_timer--;
     }
 }
 
 /**
- * @brief  模式4：节奏模式1（短-停-短-长停）
+ * @brief  模式4：节奏模式1（短-短-长停）
  * @note   时序：200ms振 - 100ms停 - 200ms振 - 500ms停
- *         适用场景：消息通知提醒
+ *         适合发送短消息通知的节奏
  */
 void Motor_Mode_Pattern_1(void)
 {
-    if (s_pattern_timer == 0) {
-        switch (s_pattern_step) {
+    if (s_pattern_timer == 0)
+    {
+        switch (s_pattern_step)
+        {
             case 0:
                 Motor_Control(1);
                 s_pattern_timer = MOTOR_VIBRATE_200MS;
@@ -196,20 +213,24 @@ void Motor_Mode_Pattern_1(void)
                 break;
         }
         s_pattern_step = (s_pattern_step + 1) % 4;
-    } else {
+    }
+    else
+    {
         s_pattern_timer--;
     }
 }
 
 /**
- * @brief  模式5：节奏模式2（三连击+长间隔）
- * @note   时序：(100ms振 - 100ms停) × 3 - 700ms长停
- *         适用场景：紧急警报
+ * @brief  模式5：节奏模式2（三连击+长停）
+ * @note   时序：100ms振 - 100ms停 × 3次 - 700ms长停
+ *         适合紧急提醒场景
  */
 void Motor_Mode_Pattern_2(void)
 {
-    if (s_pattern_timer == 0) {
-        switch (s_pattern_step) {
+    if (s_pattern_timer == 0)
+    {
+        switch (s_pattern_step)
+        {
             case 0:
                 Motor_Control(1);
                 s_pattern_timer = MOTOR_VIBRATE_100MS;
@@ -244,21 +265,25 @@ void Motor_Mode_Pattern_2(void)
                 break;
         }
         s_pattern_step = (s_pattern_step + 1) % 6;
-    } else {
+    }
+    else
+    {
         s_pattern_timer--;
     }
 }
 
 /**
  * @brief  模式6：节奏模式3（长短组合）
- * @note   时序：300ms振 - 200ms停 - 100ms振 - 400ms停 
+ * @note   时序：300ms振 - 200ms停 - 100ms振 - 400ms停
  *              - 150ms振 - 650ms停
- *         适用场景：来电/闹钟提醒
+ *         适合复杂节奏的音乐感振动
  */
 void Motor_Mode_Pattern_3(void)
 {
-    if (s_pattern_timer == 0) {
-        switch (s_pattern_step) {
+    if (s_pattern_timer == 0)
+    {
+        switch (s_pattern_step)
+        {
             case 0:
                 Motor_Control(1);
                 s_pattern_timer = MOTOR_VIBRATE_300MS;
@@ -293,23 +318,28 @@ void Motor_Mode_Pattern_3(void)
                 break;
         }
         s_pattern_step = (s_pattern_step + 1) % 6;
-    } else {
+    }
+    else
+    {
         s_pattern_timer--;
     }
 }
 
 /**
- * @brief  模式7：渐强振动
- * @note   占空比从0%逐步增加到100%，每50ms增加2%
- *         达到100%后重置为0%，循环往复
- *         模拟"呼吸灯"效果的振动版本
+ * @brief  模式7：渐强模式
+ * @note   占空比从0%逐渐增加到100%，每50ms增加2%
+ *         达到100%后重置为0%（循环）
+ *         模拟"呼吸灯"效果的振动感觉
  */
 void Motor_Mode_Ramp_Up(void)
 {
-    if (s_pattern_timer == 0) {
-        if (s_ramp_duty < RAMP_MAX_DUTY) {
+    if (s_pattern_timer == 0)
+    {
+        if (s_ramp_duty < RAMP_MAX_DUTY)
+        {
             s_ramp_duty += RAMP_STEP;
-            if (s_ramp_duty > RAMP_MAX_DUTY) {
+            if (s_ramp_duty > RAMP_MAX_DUTY)
+            {
                 s_ramp_duty = RAMP_MAX_DUTY;
             }
         }
@@ -317,26 +347,32 @@ void Motor_Mode_Ramp_Up(void)
         Motor_Control(1);
         s_pattern_timer = RAMP_UPDATE_INTERVAL_MS;
         
-        if (s_ramp_duty >= RAMP_MAX_DUTY && s_pattern_timer <= 1) {
+        if (s_ramp_duty >= RAMP_MAX_DUTY && s_pattern_timer <= 1)
+        {
             s_ramp_duty = 0;
         }
-    } else {
+    }
+    else
+    {
         s_pattern_timer--;
     }
 }
 
 /**
- * @brief  模式8：渐弱振动
+ * @brief  模式8：渐弱模式
  * @note   占空比从100%逐步减少到0%，每50ms减少2%
- *         达到0%后重置为100%，循环往复
+ *         达到0%后重置为100%（循环）
  *         与RAMP_UP形成对称效果
  */
 void Motor_Mode_Ramp_Down(void)
 {
-    if (s_pattern_timer == 0) {
-        if (s_ramp_duty > 0) {
+    if (s_pattern_timer == 0)
+    {
+        if (s_ramp_duty > 0)
+        {
             s_ramp_duty -= RAMP_STEP;
-            if (s_ramp_duty > RAMP_MAX_DUTY) {
+            if (s_ramp_duty > RAMP_MAX_DUTY)
+            {
                 s_ramp_duty = 0;
             }
         }
@@ -344,38 +380,47 @@ void Motor_Mode_Ramp_Down(void)
         Motor_Control(s_ramp_duty > 0 ? 1 : 0);
         s_pattern_timer = RAMP_UPDATE_INTERVAL_MS;
         
-        if (s_ramp_duty == 0 && s_pattern_timer <= 1) {
+        if (s_ramp_duty == 0 && s_pattern_timer <= 1)
+        {
             s_ramp_duty = RAMP_MAX_DUTY;
         }
-    } else {
+    }
+    else
+    {
         s_pattern_timer--;
     }
 }
 
 /**
- * @brief  模式9：随机振动
- * @note   使用伪随机数生成不可预测的振动时序：
+ * @brief  模式9：随机模式
+ * @note   使用伪随机数生成不可预测的时序
  *         - 振动时间：RANDOM_VIBRATE_MIN_MS ~ RANDOM_VIBRATE_MAX_MS
  *         - 停止时间：RANDOM_STOP_MIN_MS ~ RANDOM_STOP_MAX_MS
- *         适用场景：游戏反馈、趣味交互
+ *         适合游戏等需要趣味性的场景
  */
 void Motor_Mode_Random(void)
 {
-    uint8_t random_val;
+    u8 random_val;
     
-    if (s_pattern_timer == 0) {
+    if (s_pattern_timer == 0)
+    {
         random_val = Get_Random_Byte();
         
-        if (random_val < 128) {
+        if (random_val < 128)
+        {
             Motor_Control(1);
             s_pattern_timer = RANDOM_VIBRATE_MIN_MS + (random_val % 
                             (RANDOM_VIBRATE_MAX_MS - RANDOM_VIBRATE_MIN_MS + 1));
-        } else {
+        }
+        else
+        {
             Motor_Control(0);
             s_pattern_timer = RANDOM_STOP_MIN_MS + ((random_val - 128) % 
                             (RANDOM_STOP_MAX_MS - RANDOM_STOP_MIN_MS + 1));
         }
-    } else {
+    }
+    else
+    {
         s_pattern_timer--;
     }
 }
@@ -387,7 +432,8 @@ void Motor_Mode_Random(void)
  */
 void Motor_Poll(void)
 {
-    switch (s_motor_mode) {
+    switch (s_motor_mode)
+    {
         case MOTOR_MODE_IDLE:
             Motor_Mode_Idle();
             break;
@@ -429,7 +475,8 @@ void Motor_Poll(void)
             break;
             
         default:
-            if (s_motor_running == 1) {
+            if (s_motor_running == 1)
+            {
                 Motor_Control(0);
             }
             break;

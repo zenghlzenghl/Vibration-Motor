@@ -3,8 +3,8 @@
 
 static Power_State_t s_power_state = POWER_STATE_OFF;
 static Charger_State_t s_charger_state = CHARGER_STATE_NONE;
-static volatile uint32_t s_idle_counter = 0;
-static uint8_t s_last_p05_state = 0;
+static volatile u32 s_idle_counter = 0;
+static u8 s_last_p05_state = 0;
 
 static void Check_Charger_PlugUnplug(void);
 static void Update_Charging_Status(void);
@@ -17,16 +17,23 @@ static void Check_AutoPowerOff(void);
  */
 void Charger_ISR_Handler(void) interrupt INTERRUPT_VECTOR_CHARGER
 {
-    if (EPIF & 0x04) {
+    if (EPIF & 0x04)
+    {
         EPIF = 0x04;
         
-        if (GPIO_ReadPin(CHARGER_DETECT_PIN) == GPIO_LEVEL_HIGH) {
-            if (GPIO_ReadPin(CHARGE_STATUS_PIN) == GPIO_LEVEL_HIGH) {
+        if (GPIO_ReadPin(CHARGER_DETECT_PIN) == GPIO_LEVEL_HIGH)
+        {
+            if (GPIO_ReadPin(CHARGE_STATUS_PIN) == GPIO_LEVEL_HIGH)
+            {
                 s_charger_state = CHARGER_STATE_FULL;
-            } else {
+            }
+            else
+            {
                 s_charger_state = CHARGER_STATE_CHARGING;
             }
-        } else {
+        }
+        else
+        {
             s_charger_state = CHARGER_STATE_NONE;
         }
     }
@@ -82,7 +89,8 @@ void Power_SetState(Power_State_t state)
 {
     s_power_state = state;
     
-    if (state == POWER_STATE_ON) {
+    if (state == POWER_STATE_ON)
+    {
         s_idle_counter = 0;
     }
 }
@@ -91,10 +99,10 @@ void Power_SetState(Power_State_t state)
  * @brief  获取空闲计时器值
  * @return 空闲时间（毫秒）
  */
-uint32_t Power_GetIdleCounter(void)
-{
-    return s_idle_counter;
-}
+//u32 Power_GetIdleCounter(void)
+//{
+//    return s_idle_counter;
+//}
 
 /**
  * @brief  重置空闲计时器
@@ -103,6 +111,14 @@ uint32_t Power_GetIdleCounter(void)
 void Power_ResetIdleCounter(void)
 {
     s_idle_counter = 0;
+}
+
+void Power_IncrementIdleCounter(void)
+{
+    if (s_idle_counter < 0xFFFFFFFFUL)
+    {
+        s_idle_counter++;
+    }
 }
 
 /**
@@ -116,7 +132,7 @@ void Power_ResetIdleCounter(void)
 void Power_EnterStopMode(void)
 {
     bit ea_backup;
-    uint8_t ckcon_backup;
+    u8 ckcon_backup;
     
     I2CCON = 0x00;
     MECON |= (1 << 6);
@@ -154,25 +170,31 @@ void Power_WakeUpHandler(void)
  */
 static void Check_Charger_PlugUnplug(void)
 {
-    uint8_t current_p05_state;
-    uint8_t charge_status;
+    u8 current_p05_state;
+    u8 charge_status;
     
     current_p05_state = GPIO_ReadPin(CHARGER_DETECT_PIN);
     
-    if (current_p05_state != s_last_p05_state) {
+    if (current_p05_state != s_last_p05_state)
+    {
         current_p05_state = GPIO_ReadPin(CHARGER_DETECT_PIN);
         
-        switch (current_p05_state) {
+        switch (current_p05_state)
+        {
             case GPIO_LEVEL_HIGH:
                 charge_status = GPIO_ReadPin(CHARGE_STATUS_PIN);
                 
-                if (charge_status == GPIO_LEVEL_HIGH) {
+                if (charge_status == GPIO_LEVEL_HIGH)
+                {
                     s_charger_state = CHARGER_STATE_FULL;
-                } else {
+                }
+                else
+                {
                     s_charger_state = CHARGER_STATE_CHARGING;
                 }
                 
-                if (s_power_state == POWER_STATE_OFF) {
+                if (s_power_state == POWER_STATE_OFF)
+                {
                     s_power_state = POWER_STATE_ON;
                     s_idle_counter = 0;
                 }
@@ -181,7 +203,8 @@ static void Check_Charger_PlugUnplug(void)
             default:
                 s_charger_state = CHARGER_STATE_NONE;
                 
-                if (s_power_state == POWER_STATE_ON) {
+                if (s_power_state == POWER_STATE_ON)
+                {
                     s_power_state = POWER_STATE_OFF;
                 }
                 break;
@@ -198,16 +221,19 @@ static void Check_Charger_PlugUnplug(void)
  */
 static void Update_Charging_Status(void)
 {
-    uint8_t charge_status;
+    u8 charge_status;
     
     if (s_charger_state == CHARGER_STATE_CHARGING || 
-        s_charger_state == CHARGER_STATE_FULL) {
-        
+        s_charger_state == CHARGER_STATE_FULL)
+    {
         charge_status = GPIO_ReadPin(CHARGE_STATUS_PIN);
         
-        if (charge_status == GPIO_LEVEL_HIGH) {
+        if (charge_status == GPIO_LEVEL_HIGH)
+        {
             s_charger_state = CHARGER_STATE_FULL;
-        } else {
+        }
+        else
+        {
             s_charger_state = CHARGER_STATE_CHARGING;
         }
     }
@@ -224,19 +250,23 @@ static void Update_Charging_Status(void)
  */
 static void Check_AutoPowerOff(void)
 {
-    if (s_power_state != POWER_STATE_ON) {
+    if (s_power_state != POWER_STATE_ON)
+    {
         return;
     }
     
-    if (s_charger_state != CHARGER_STATE_NONE) {
+    if (s_charger_state != CHARGER_STATE_NONE)
+    {
         return;
     }
     
-    if (Motor_GetMode() != MOTOR_MODE_IDLE) {
+    if (Motor_GetMode() != MOTOR_MODE_IDLE)
+    {
         return;
     }
     
-    if (s_idle_counter >= AUTO_POWEROFF_TIME_MS) {
+    if (s_idle_counter >= AUTO_POWEROFF_TIME_MS)
+    {
         s_power_state = POWER_STATE_OFF;
     }
 }

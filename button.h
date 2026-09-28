@@ -3,7 +3,7 @@
 
 #include "gpio.h"
 #include "config.h"
-#include <stdint.h>
+//#include <stdint.h>
 
 typedef enum {
     BUTTON_EVENT_NONE = 0,
@@ -15,6 +15,6 @@ void Button_Init(void);
 void Button_Poll(void);
 Button_Event_t Button_GetEvent(void);
 void Button_ClearEvent(void);
-uint8_t Button_IsPressed(void);
+//u8 Button_IsPressed(void);
 
 #endif

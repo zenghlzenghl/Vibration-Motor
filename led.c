@@ -1,13 +1,13 @@
 #include "led.h"
 
 static LED_State_t s_led_state = LED_STATE_OFF;
-static uint16_t s_blink_counter = 0;
-static uint16_t s_blink_timer = 0;
-static uint8_t s_led_current_output = 0;
+static u16 s_blink_counter = 0;
+static u16 s_blink_timer = 0;
+static u8 s_led_current_output = 0;
 
 /**
  * @brief  LED模块初始化
- * @note   配置P0.2为输出模式，初始状态为关闭
+ * @note   配置P0.2为推挽输出，初始状态为关闭
  */
 void LED_Init(void)
 {
@@ -31,7 +31,8 @@ void LED_SetState(LED_State_t state)
     s_blink_counter = 0;
     s_blink_timer = 0;
     
-    switch (state) {
+    switch (state)
+    {
         case LED_STATE_OFF:
             GPIO_WritePin(LED_PIN, GPIO_LEVEL_LOW);
             s_led_current_output = 0;
@@ -51,22 +52,25 @@ void LED_SetState(LED_State_t state)
  * @brief  LED轮询函数（非阻塞，需1ms调用一次）
  * @note   实现功能：
  *         - OFF: 关闭LED
- *         - ON: 常亮LED
- *         - BLINK_CHARGING: 500ms周期闪烁（充电中指示）
- *         - BLINK_500MS: 熄灭500ms后恢复常亮（模式切换提示）
+ *         - ON: 点亮LED
+ *         - BLINK_CHARGING: 500ms周期闪烁（充电指示）
+ *         - BLINK_500MS: 熄灭500ms后恢复（模式切换提示）
  */
 void LED_Poll(void)
 {
-    switch (s_led_state) {
+    switch (s_led_state)
+    {
         case LED_STATE_OFF:
-            if (s_led_current_output == 1) {
+            if (s_led_current_output == 1)
+            {
                 GPIO_WritePin(LED_PIN, GPIO_LEVEL_LOW);
                 s_led_current_output = 0;
             }
             break;
             
         case LED_STATE_ON:
-            if (s_led_current_output == 0) {
+            if (s_led_current_output == 0)
+            {
                 GPIO_WritePin(LED_PIN, GPIO_LEVEL_HIGH);
                 s_led_current_output = 1;
             }
@@ -74,7 +78,8 @@ void LED_Poll(void)
             
         case LED_STATE_BLINK_CHARGING:
             s_blink_counter++;
-            if (s_blink_counter >= LED_BLINK_CHARGING_PERIOD) {
+            if (s_blink_counter >= LED_BLINK_CHARGING_PERIOD)
+            {
                 s_blink_counter = 0;
                 s_led_current_output = !s_led_current_output;
                 GPIO_WritePin(LED_PIN, s_led_current_output ? 
@@ -83,13 +88,17 @@ void LED_Poll(void)
             break;
             
         case LED_STATE_BLINK_500MS:
-            if (s_blink_timer > 0) {
+            if (s_blink_timer > 0)
+            {
                 s_blink_timer--;
-                if (s_led_current_output == 1) {
+                if (s_led_current_output == 1)
+                {
                     GPIO_WritePin(LED_PIN, GPIO_LEVEL_LOW);
                     s_led_current_output = 0;
                 }
-            } else {
+            }
+            else
+            {
                 GPIO_WritePin(LED_PIN, GPIO_LEVEL_HIGH);
                 s_led_current_output = 1;
                 s_led_state = LED_STATE_ON;

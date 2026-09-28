@@ -1,8 +1,12 @@
 #ifndef __CA51M550_H__
 #define __CA51M550_H__
 
-#include <reg51.h>
+//#include <reg51.h>
 #include <intrins.h>
+
+typedef unsigned char  u8;
+typedef unsigned int   u16;
+typedef unsigned long  u32;
 
 sfr P0      = 0x80;
 sfr P1      = 0x90;

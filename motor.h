@@ -3,7 +3,7 @@
 
 #include "gpio.h"
 #include "config.h"
-#include <stdint.h>
+//#include <stdint.h>
 
 typedef enum {
     MOTOR_MODE_IDLE = 0,
@@ -23,6 +23,6 @@ void Motor_Init(void);
 void Motor_SetMode(Motor_Mode_t mode);
 Motor_Mode_t Motor_GetMode(void);
 void Motor_Poll(void);
-void Motor_Control(uint8_t enable);
+void Motor_Control(u8 enable);
 
 #endif

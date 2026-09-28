@@ -2,7 +2,7 @@
 #define __GPIO_H__
 
 #include "ca51m550.h"
-#include <stdint.h>
+//#include <stdint.h>
 
 #define GPIO_PIN_0               0
 #define GPIO_PIN_1               1
@@ -11,6 +11,8 @@
 #define GPIO_PIN_4               4
 #define GPIO_PIN_5               5
 #define GPIO_PIN_COUNT           6
+
+typedef u8 GPIO_Pin_t;
 
 typedef enum {
     GPIO_MODE_INPUT = 0,
@@ -27,6 +29,6 @@ typedef enum {
 void GPIO_Init(GPIO_Pin_t pin, GPIO_Mode_t mode);
 void GPIO_WritePin(GPIO_Pin_t pin, GPIO_Level_t level);
 GPIO_Level_t GPIO_ReadPin(GPIO_Pin_t pin);
-void GPIO_TogglePin(GPIO_Pin_t pin);
+//void GPIO_TogglePin(GPIO_Pin_t pin);
 
 #endif
