@@ -1,0 +1,523 @@
+C51 COMPILER V7.00  MOTOR                                                                  09/29/2026 07:47:58 PAGE 1   
+
+
+C51 COMPILER V7.00, COMPILATION OF MODULE MOTOR
+OBJECT MODULE PLACED IN output\motor.obj
+COMPILER INVOKED BY: E:\keil\C51\BIN\c51.exe source\motor.c LARGE OBJECT(output\motor.obj)
+
+stmt level    source
+
+   1          #include "motor.h"
+   2          
+   3          static Motor_Mode_t s_motor_mode = MOTOR_MODE_IDLE;
+   4          static u8 s_motor_running = 0;
+   5          static u16 s_pattern_timer = 0;
+   6          static u8 s_pattern_step = 0;
+   7          static u8 s_ramp_duty = 0;
+   8          static u8 s_random_seed = 123;
+   9          
+  10          static u8 Get_Random_Byte(void);
+  11          void Motor_Mode_Idle(void);
+  12          void Motor_Mode_Continuous(void);
+  13          void Motor_Mode_Interval_1S(void);
+  14          void Motor_Mode_Interval_2S(void);
+  15          void Motor_Mode_Pattern_1(void);
+  16          void Motor_Mode_Pattern_2(void);
+  17          void Motor_Mode_Pattern_3(void);
+  18          void Motor_Mode_Ramp_Up(void);
+  19          void Motor_Mode_Ramp_Down(void);
+  20          void Motor_Mode_Random(void);
+  21          
+  22          /**
+  23           * @brief  伪随机数生成器（线性同余算法）
+  24           * @return 0-255范围内的随机字节
+  25           * @note   使用静态种子，每次调用更新种子
+  26           */
+  27          static u8 Get_Random_Byte(void)
+  28          {
+  29   1          s_random_seed = s_random_seed * 1103515245 + 12345;
+  30   1          return (u8)(s_random_seed >> 16);
+  31   1      }
+  32          
+  33          /**
+  34           * @brief  马达模块初始化
+  35           * @note   配置P0.3为推挽输出，初始状态为关闭
+  36           */
+  37          void Motor_Init(void)
+  38          {
+  39   1          GPIO_Init(MOTOR_PIN, GPIO_MODE_OUTPUT);
+  40   1          GPIO_WritePin(MOTOR_PIN, GPIO_LEVEL_LOW);
+  41   1          
+  42   1          s_motor_mode = MOTOR_MODE_IDLE;
+  43   1          s_motor_running = 0;
+  44   1          s_pattern_timer = 0;
+  45   1          s_pattern_step = 0;
+  46   1          s_ramp_duty = 0;
+  47   1      }
+  48          
+  49          /**
+  50           * @brief  直接控制马达开关
+  51           * @param  enable: 1=开启马达, 0=关闭马达
+  52           */
+  53          void Motor_Control(u8 enable)
+  54          {
+  55   1          if (enable)
+C51 COMPILER V7.00  MOTOR                                                                  09/29/2026 07:47:58 PAGE 2   
+
+  56   1          {
+  57   2              GPIO_WritePin(MOTOR_PIN, GPIO_LEVEL_HIGH);
+  58   2              s_motor_running = 1;
+  59   2          }
+  60   1          else
+  61   1          {
+  62   2              GPIO_WritePin(MOTOR_PIN, GPIO_LEVEL_LOW);
+  63   2              s_motor_running = 0;
+  64   2          }
+  65   1      }
+  66          
+  67          /**
+  68           * @brief  设置振动模式
+  69           * @param  mode: 目标模式（参考Motor_Mode_t枚举）
+  70           * @note   切换模式时会重置所有内部状态（计时器、步进、占空比）
+  71           */
+  72          void Motor_SetMode(Motor_Mode_t mode)
+  73          {
+  74   1          if (mode >= MOTOR_MODE_COUNT)
+  75   1          {
+  76   2              mode = MOTOR_MODE_IDLE;
+  77   2          }
+  78   1          
+  79   1          s_motor_mode = mode;
+  80   1          s_pattern_step = 0;
+  81   1          s_pattern_timer = 0;
+  82   1          s_ramp_duty = 0;
+  83   1          
+  84   1          if (mode == MOTOR_MODE_IDLE)
+  85   1          {
+  86   2              Motor_Control(0);
+  87   2          }
+  88   1      }
+  89          
+  90          /**
+  91           * @brief  获取当前振动模式
+  92           * @return 当前模式
+  93           */
+  94          Motor_Mode_t Motor_GetMode(void)
+  95          {
+  96   1          return s_motor_mode;
+  97   1      }
+  98          
+  99          /**
+ 100           * @brief  模式0：空闲模式
+ 101           * @note   始终保持关闭状态
+ 102           */
+ 103          void Motor_Mode_Idle(void)
+ 104          {
+ 105   1          if (s_motor_running == 1)
+ 106   1          {
+ 107   2              Motor_Control(0);
+ 108   2          }
+ 109   1      }
+ 110          
+ 111          /**
+ 112           * @brief  模式1：连续模式
+ 113           * @note   马达持续振动直到切换到其他模式
+ 114           */
+ 115          void Motor_Mode_Continuous(void)
+ 116          {
+ 117   1          if (s_motor_running == 0)
+C51 COMPILER V7.00  MOTOR                                                                  09/29/2026 07:47:58 PAGE 3   
+
+ 118   1          {
+ 119   2              Motor_Control(1);
+ 120   2          }
+ 121   1      }
+ 122          
+ 123          /**
+ 124           * @brief  模式2：间隔1秒模式
+ 125           * @note   时序：500ms振动 + 500ms停止（循环）
+ 126           */
+ 127          void Motor_Mode_Interval_1S(void)
+ 128          {
+ 129   1          if (s_pattern_timer == 0)
+ 130   1          {
+ 131   2              switch (s_pattern_step)
+ 132   2              {
+ 133   3                  case 0:
+ 134   3                      Motor_Control(1);
+ 135   3                      s_pattern_timer = 500;
+ 136   3                      s_pattern_step = 1;
+ 137   3                      break;
+ 138   3                      
+ 139   3                  default:
+ 140   3                      Motor_Control(0);
+ 141   3                      s_pattern_timer = 500;
+ 142   3                      s_pattern_step = 0;
+ 143   3                      break;
+ 144   3              }
+ 145   2          }
+ 146   1          else
+ 147   1          {
+ 148   2              s_pattern_timer--;
+ 149   2          }
+ 150   1      }
+ 151          
+ 152          /**
+ 153           * @brief  模式3：间隔2秒模式
+ 154           * @note   时序：500ms振动 + 1500ms停止（循环）
+ 155           */
+ 156          void Motor_Mode_Interval_2S(void)
+ 157          {
+ 158   1          if (s_pattern_timer == 0)
+ 159   1          {
+ 160   2              switch (s_pattern_step)
+ 161   2              {
+ 162   3                  case 0:
+ 163   3                      Motor_Control(1);
+ 164   3                      s_pattern_timer = 500;
+ 165   3                      s_pattern_step = 1;
+ 166   3                      break;
+ 167   3                      
+ 168   3                  default:
+ 169   3                      Motor_Control(0);
+ 170   3                      s_pattern_timer = 1500;
+ 171   3                      s_pattern_step = 0;
+ 172   3                      break;
+ 173   3              }
+ 174   2          }
+ 175   1          else
+ 176   1          {
+ 177   2              s_pattern_timer--;
+ 178   2          }
+ 179   1      }
+C51 COMPILER V7.00  MOTOR                                                                  09/29/2026 07:47:58 PAGE 4   
+
+ 180          
+ 181          /**
+ 182           * @brief  模式4：节奏模式1（短-短-长停）
+ 183           * @note   时序：200ms振 - 100ms停 - 200ms振 - 500ms停
+ 184           *         适合发送短消息通知的节奏
+ 185           */
+ 186          void Motor_Mode_Pattern_1(void)
+ 187          {
+ 188   1          if (s_pattern_timer == 0)
+ 189   1          {
+ 190   2              switch (s_pattern_step)
+ 191   2              {
+ 192   3                  case 0:
+ 193   3                      Motor_Control(1);
+ 194   3                      s_pattern_timer = MOTOR_VIBRATE_200MS;
+ 195   3                      break;
+ 196   3                      
+ 197   3                  case 1:
+ 198   3                      Motor_Control(0);
+ 199   3                      s_pattern_timer = MOTOR_STOP_100MS;
+ 200   3                      break;
+ 201   3                      
+ 202   3                  case 2:
+ 203   3                      Motor_Control(1);
+ 204   3                      s_pattern_timer = MOTOR_VIBRATE_200MS;
+ 205   3                      break;
+ 206   3                      
+ 207   3                  case 3:
+ 208   3                      Motor_Control(0);
+ 209   3                      s_pattern_timer = MOTOR_STOP_500MS;
+ 210   3                      break;
+ 211   3                      
+ 212   3                  default:
+ 213   3                      break;
+ 214   3              }
+ 215   2              s_pattern_step = (s_pattern_step + 1) % 4;
+ 216   2          }
+ 217   1          else
+ 218   1          {
+ 219   2              s_pattern_timer--;
+ 220   2          }
+ 221   1      }
+ 222          
+ 223          /**
+ 224           * @brief  模式5：节奏模式2（三连击+长停）
+ 225           * @note   时序：100ms振 - 100ms停 × 3次 - 700ms长停
+ 226           *         适合紧急提醒场景
+ 227           */
+ 228          void Motor_Mode_Pattern_2(void)
+ 229          {
+ 230   1          if (s_pattern_timer == 0)
+ 231   1          {
+ 232   2              switch (s_pattern_step)
+ 233   2              {
+ 234   3                  case 0:
+ 235   3                      Motor_Control(1);
+ 236   3                      s_pattern_timer = MOTOR_VIBRATE_100MS;
+ 237   3                      break;
+ 238   3                      
+ 239   3                  case 1:
+ 240   3                      Motor_Control(0);
+ 241   3                      s_pattern_timer = MOTOR_STOP_100MS;
+C51 COMPILER V7.00  MOTOR                                                                  09/29/2026 07:47:58 PAGE 5   
+
+ 242   3                      break;
+ 243   3                      
+ 244   3                  case 2:
+ 245   3                      Motor_Control(1);
+ 246   3                      s_pattern_timer = MOTOR_VIBRATE_100MS;
+ 247   3                      break;
+ 248   3                      
+ 249   3                  case 3:
+ 250   3                      Motor_Control(0);
+ 251   3                      s_pattern_timer = MOTOR_STOP_100MS;
+ 252   3                      break;
+ 253   3                      
+ 254   3                  case 4:
+ 255   3                      Motor_Control(1);
+ 256   3                      s_pattern_timer = MOTOR_VIBRATE_100MS;
+ 257   3                      break;
+ 258   3                      
+ 259   3                  case 5:
+ 260   3                      Motor_Control(0);
+ 261   3                      s_pattern_timer = MOTOR_STOP_700MS;
+ 262   3                      break;
+ 263   3                      
+ 264   3                  default:
+ 265   3                      break;
+ 266   3              }
+ 267   2              s_pattern_step = (s_pattern_step + 1) % 6;
+ 268   2          }
+ 269   1          else
+ 270   1          {
+ 271   2              s_pattern_timer--;
+ 272   2          }
+ 273   1      }
+ 274          
+ 275          /**
+ 276           * @brief  模式6：节奏模式3（长短组合）
+ 277           * @note   时序：300ms振 - 200ms停 - 100ms振 - 400ms停
+ 278           *              - 150ms振 - 650ms停
+ 279           *         适合复杂节奏的音乐感振动
+ 280           */
+ 281          void Motor_Mode_Pattern_3(void)
+ 282          {
+ 283   1          if (s_pattern_timer == 0)
+ 284   1          {
+ 285   2              switch (s_pattern_step)
+ 286   2              {
+ 287   3                  case 0:
+ 288   3                      Motor_Control(1);
+ 289   3                      s_pattern_timer = MOTOR_VIBRATE_300MS;
+ 290   3                      break;
+ 291   3                      
+ 292   3                  case 1:
+ 293   3                      Motor_Control(0);
+ 294   3                      s_pattern_timer = MOTOR_STOP_200MS;
+ 295   3                      break;
+ 296   3                      
+ 297   3                  case 2:
+ 298   3                      Motor_Control(1);
+ 299   3                      s_pattern_timer = MOTOR_VIBRATE_100MS;
+ 300   3                      break;
+ 301   3                      
+ 302   3                  case 3:
+ 303   3                      Motor_Control(0);
+C51 COMPILER V7.00  MOTOR                                                                  09/29/2026 07:47:58 PAGE 6   
+
+ 304   3                      s_pattern_timer = MOTOR_STOP_400MS;
+ 305   3                      break;
+ 306   3                      
+ 307   3                  case 4:
+ 308   3                      Motor_Control(1);
+ 309   3                      s_pattern_timer = MOTOR_VIBRATE_150MS;
+ 310   3                      break;
+ 311   3                      
+ 312   3                  case 5:
+ 313   3                      Motor_Control(0);
+ 314   3                      s_pattern_timer = MOTOR_STOP_650MS;
+ 315   3                      break;
+ 316   3                      
+ 317   3                  default:
+ 318   3                      break;
+ 319   3              }
+ 320   2              s_pattern_step = (s_pattern_step + 1) % 6;
+ 321   2          }
+ 322   1          else
+ 323   1          {
+ 324   2              s_pattern_timer--;
+ 325   2          }
+ 326   1      }
+ 327          
+ 328          /**
+ 329           * @brief  模式7：渐强模式
+ 330           * @note   占空比从0%逐渐增加到100%，每50ms增加2%
+ 331           *         达到100%后重置为0%（循环）
+ 332           *         模拟"呼吸灯"效果的振动感觉
+ 333           */
+ 334          void Motor_Mode_Ramp_Up(void)
+ 335          {
+ 336   1          if (s_pattern_timer == 0)
+ 337   1          {
+ 338   2              if (s_ramp_duty < RAMP_MAX_DUTY)
+ 339   2              {
+ 340   3                  s_ramp_duty += RAMP_STEP;
+ 341   3                  if (s_ramp_duty > RAMP_MAX_DUTY)
+ 342   3                  {
+ 343   4                      s_ramp_duty = RAMP_MAX_DUTY;
+ 344   4                  }
+ 345   3              }
+ 346   2              
+ 347   2              Motor_Control(1);
+ 348   2              s_pattern_timer = RAMP_UPDATE_INTERVAL_MS;
+ 349   2              
+ 350   2              if (s_ramp_duty >= RAMP_MAX_DUTY && s_pattern_timer <= 1)
+ 351   2              {
+ 352   3                  s_ramp_duty = 0;
+ 353   3              }
+ 354   2          }
+ 355   1          else
+ 356   1          {
+ 357   2              s_pattern_timer--;
+ 358   2          }
+ 359   1      }
+ 360          
+ 361          /**
+ 362           * @brief  模式8：渐弱模式
+ 363           * @note   占空比从100%逐步减少到0%，每50ms减少2%
+ 364           *         达到0%后重置为100%（循环）
+ 365           *         与RAMP_UP形成对称效果
+C51 COMPILER V7.00  MOTOR                                                                  09/29/2026 07:47:58 PAGE 7   
+
+ 366           */
+ 367          void Motor_Mode_Ramp_Down(void)
+ 368          {
+ 369   1          if (s_pattern_timer == 0)
+ 370   1          {
+ 371   2              if (s_ramp_duty > 0)
+ 372   2              {
+ 373   3                  s_ramp_duty -= RAMP_STEP;
+ 374   3                  if (s_ramp_duty > RAMP_MAX_DUTY)
+ 375   3                  {
+ 376   4                      s_ramp_duty = 0;
+ 377   4                  }
+ 378   3              }
+ 379   2              
+ 380   2              Motor_Control(s_ramp_duty > 0 ? 1 : 0);
+ 381   2              s_pattern_timer = RAMP_UPDATE_INTERVAL_MS;
+ 382   2              
+ 383   2              if (s_ramp_duty == 0 && s_pattern_timer <= 1)
+ 384   2              {
+ 385   3                  s_ramp_duty = RAMP_MAX_DUTY;
+ 386   3              }
+ 387   2          }
+ 388   1          else
+ 389   1          {
+ 390   2              s_pattern_timer--;
+ 391   2          }
+ 392   1      }
+ 393          
+ 394          /**
+ 395           * @brief  模式9：随机模式
+ 396           * @note   使用伪随机数生成不可预测的时序
+ 397           *         - 振动时间：RANDOM_VIBRATE_MIN_MS ~ RANDOM_VIBRATE_MAX_MS
+ 398           *         - 停止时间：RANDOM_STOP_MIN_MS ~ RANDOM_STOP_MAX_MS
+ 399           *         适合游戏等需要趣味性的场景
+ 400           */
+ 401          void Motor_Mode_Random(void)
+ 402          {
+ 403   1          u8 random_val;
+ 404   1          
+ 405   1          if (s_pattern_timer == 0)
+ 406   1          {
+ 407   2              random_val = Get_Random_Byte();
+ 408   2              
+ 409   2              if (random_val < 128)
+ 410   2              {
+ 411   3                  Motor_Control(1);
+ 412   3                  s_pattern_timer = RANDOM_VIBRATE_MIN_MS + (random_val % 
+ 413   3                                  (RANDOM_VIBRATE_MAX_MS - RANDOM_VIBRATE_MIN_MS + 1));
+ 414   3              }
+ 415   2              else
+ 416   2              {
+ 417   3                  Motor_Control(0);
+ 418   3                  s_pattern_timer = RANDOM_STOP_MIN_MS + ((random_val - 128) % 
+ 419   3                                  (RANDOM_STOP_MAX_MS - RANDOM_STOP_MIN_MS + 1));
+ 420   3              }
+ 421   2          }
+ 422   1          else
+ 423   1          {
+ 424   2              s_pattern_timer--;
+ 425   2          }
+ 426   1      }
+ 427          
+C51 COMPILER V7.00  MOTOR                                                                  09/29/2026 07:47:58 PAGE 8   
+
+ 428          /**
+ 429           * @brief  马达轮询函数（非阻塞，需1ms调用一次）
+ 430           * @note   根据当前模式调用对应的模式处理函数
+ 431           *         这是唯一的对外调度接口
+ 432           */
+ 433          void Motor_Poll(void)
+ 434          {
+ 435   1          switch (s_motor_mode)
+ 436   1          {
+ 437   2              case MOTOR_MODE_IDLE:
+ 438   2                  Motor_Mode_Idle();
+ 439   2                  break;
+ 440   2                  
+ 441   2              case MOTOR_MODE_CONTINUOUS:
+ 442   2                  Motor_Mode_Continuous();
+ 443   2                  break;
+ 444   2                  
+ 445   2              case MOTOR_MODE_INTERVAL_1S:
+ 446   2                  Motor_Mode_Interval_1S();
+ 447   2                  break;
+ 448   2                  
+ 449   2              case MOTOR_MODE_INTERVAL_2S:
+ 450   2                  Motor_Mode_Interval_2S();
+ 451   2                  break;
+ 452   2                  
+ 453   2              case MOTOR_MODE_PATTERN_1:
+ 454   2                  Motor_Mode_Pattern_1();
+ 455   2                  break;
+ 456   2                  
+ 457   2              case MOTOR_MODE_PATTERN_2:
+ 458   2                  Motor_Mode_Pattern_2();
+ 459   2                  break;
+ 460   2                  
+ 461   2              case MOTOR_MODE_PATTERN_3:
+ 462   2                  Motor_Mode_Pattern_3();
+ 463   2                  break;
+ 464   2                  
+ 465   2              case MOTOR_MODE_RAMP_UP:
+ 466   2                  Motor_Mode_Ramp_Up();
+ 467   2                  break;
+ 468   2                  
+ 469   2              case MOTOR_MODE_RAMP_DOWN:
+ 470   2                  Motor_Mode_Ramp_Down();
+ 471   2                  break;
+ 472   2                  
+ 473   2              case MOTOR_MODE_RANDOM:
+ 474   2                  Motor_Mode_Random();
+ 475   2                  break;
+ 476   2                  
+ 477   2              default:
+ 478   2                  if (s_motor_running == 1)
+ 479   2                  {
+ 480   3                      Motor_Control(0);
+ 481   3                  }
+ 482   2                  break;
+ 483   2          }
+ 484   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1054    ----
+   CONSTANT SIZE    =   ----    ----
+C51 COMPILER V7.00  MOTOR                                                                  09/29/2026 07:47:58 PAGE 9   
+
+   XDATA SIZE       =      7       1
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

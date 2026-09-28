@@ -1,0 +1,158 @@
+C51 COMPILER V7.00  LED                                                                    09/29/2026 07:47:58 PAGE 1   
+
+
+C51 COMPILER V7.00, COMPILATION OF MODULE LED
+OBJECT MODULE PLACED IN output\led.obj
+COMPILER INVOKED BY: E:\keil\C51\BIN\c51.exe source\led.c LARGE OBJECT(output\led.obj)
+
+stmt level    source
+
+   1          #include "led.h"
+   2          
+   3          static LED_State_t s_led_state = LED_STATE_OFF;
+   4          static u16 s_blink_counter = 0;
+   5          static u16 s_blink_timer = 0;
+   6          static u8 s_led_current_output = 0;
+   7          
+   8          /**
+   9           * @brief  LED模块初始化
+  10           * @note   配置P0.2为推挽输出，初始状态为关闭
+  11           */
+  12          void LED_Init(void)
+  13          {
+  14   1          GPIO_Init(LED_PIN, GPIO_MODE_OUTPUT);
+  15   1          GPIO_WritePin(LED_PIN, GPIO_LEVEL_LOW);
+  16   1          
+  17   1          s_led_state = LED_STATE_OFF;
+  18   1          s_blink_counter = 0;
+  19   1          s_blink_timer = 0;
+  20   1          s_led_current_output = 0;
+  21   1      }
+  22          
+  23          /**
+  24           * @brief  设置LED状态
+  25           * @param  state: 目标状态（OFF/ON/BLINK_CHARGING/BLINK_500MS）
+  26           * @note   调用此函数会重置闪烁计时器
+  27           */
+  28          void LED_SetState(LED_State_t state)
+  29          {
+  30   1          s_led_state = state;
+  31   1          s_blink_counter = 0;
+  32   1          s_blink_timer = 0;
+  33   1          
+  34   1          switch (state)
+  35   1          {
+  36   2              case LED_STATE_OFF:
+  37   2                  GPIO_WritePin(LED_PIN, GPIO_LEVEL_LOW);
+  38   2                  s_led_current_output = 0;
+  39   2                  break;
+  40   2                  
+  41   2              case LED_STATE_ON:
+  42   2                  GPIO_WritePin(LED_PIN, GPIO_LEVEL_HIGH);
+  43   2                  s_led_current_output = 1;
+  44   2                  break;
+  45   2                  
+  46   2              default:
+  47   2                  break;
+  48   2          }
+  49   1      }
+  50          
+  51          /**
+  52           * @brief  LED轮询函数（非阻塞，需1ms调用一次）
+  53           * @note   实现功能：
+  54           *         - OFF: 关闭LED
+  55           *         - ON: 点亮LED
+C51 COMPILER V7.00  LED                                                                    09/29/2026 07:47:58 PAGE 2   
+
+  56           *         - BLINK_CHARGING: 500ms周期闪烁（充电指示）
+  57           *         - BLINK_500MS: 熄灭500ms后恢复（模式切换提示）
+  58           */
+  59          void LED_Poll(void)
+  60          {
+  61   1          switch (s_led_state)
+  62   1          {
+  63   2              case LED_STATE_OFF:
+  64   2                  if (s_led_current_output == 1)
+  65   2                  {
+  66   3                      GPIO_WritePin(LED_PIN, GPIO_LEVEL_LOW);
+  67   3                      s_led_current_output = 0;
+  68   3                  }
+  69   2                  break;
+  70   2                  
+  71   2              case LED_STATE_ON:
+  72   2                  if (s_led_current_output == 0)
+  73   2                  {
+  74   3                      GPIO_WritePin(LED_PIN, GPIO_LEVEL_HIGH);
+  75   3                      s_led_current_output = 1;
+  76   3                  }
+  77   2                  break;
+  78   2                  
+  79   2              case LED_STATE_BLINK_CHARGING:
+  80   2                  s_blink_counter++;
+  81   2                  if (s_blink_counter >= LED_BLINK_CHARGING_PERIOD)
+  82   2                  {
+  83   3                      s_blink_counter = 0;
+  84   3                      s_led_current_output = !s_led_current_output;
+  85   3                      GPIO_WritePin(LED_PIN, s_led_current_output ? 
+  86   3                                    GPIO_LEVEL_HIGH : GPIO_LEVEL_LOW);
+  87   3                  }
+  88   2                  break;
+  89   2                  
+  90   2              case LED_STATE_BLINK_500MS:
+  91   2                  if (s_blink_timer > 0)
+  92   2                  {
+  93   3                      s_blink_timer--;
+  94   3                      if (s_led_current_output == 1)
+  95   3                      {
+  96   4                          GPIO_WritePin(LED_PIN, GPIO_LEVEL_LOW);
+  97   4                          s_led_current_output = 0;
+  98   4                      }
+  99   3                  }
+ 100   2                  else
+ 101   2                  {
+ 102   3                      GPIO_WritePin(LED_PIN, GPIO_LEVEL_HIGH);
+ 103   3                      s_led_current_output = 1;
+ 104   3                      s_led_state = LED_STATE_ON;
+ 105   3                  }
+ 106   2                  break;
+ 107   2                  
+ 108   2              default:
+ 109   2                  break;
+ 110   2          }
+ 111   1      }
+ 112          
+ 113          /**
+ 114           * @brief  获取LED当前状态
+ 115           * @return 当前LED状态
+ 116           */
+ 117          LED_State_t LED_GetState(void)
+C51 COMPILER V7.00  LED                                                                    09/29/2026 07:47:58 PAGE 3   
+
+ 118          {
+ 119   1          return s_led_state;
+ 120   1      }
+ 121          
+ 122          /**
+ 123           * @brief  启动500ms熄灭模式
+ 124           * @note   用于短按切换模式时的视觉反馈
+ 125           */
+ 126          void LED_StartBlink500ms(void)
+ 127          {
+ 128   1          s_led_state = LED_STATE_BLINK_500MS;
+ 129   1          s_blink_timer = LED_BLINK_500MS_DURATION;
+ 130   1          s_blink_counter = 0;
+ 131   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    292    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      6    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

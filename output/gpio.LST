@@ -1,0 +1,93 @@
+C51 COMPILER V7.00  GPIO                                                                   09/29/2026 07:47:58 PAGE 1   
+
+
+C51 COMPILER V7.00, COMPILATION OF MODULE GPIO
+OBJECT MODULE PLACED IN output\gpio.obj
+COMPILER INVOKED BY: E:\keil\C51\BIN\c51.exe source\gpio.c LARGE OBJECT(output\gpio.obj)
+
+stmt level    source
+
+   1          #include "gpio.h"
+   2          
+   3          static u8 code s_gpio_pin_reg[] = {0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6};
+   4          
+   5          void GPIO_Init(GPIO_Pin_t pin, GPIO_Mode_t mode)
+   6          {
+   7   1          u8 reg_addr;
+   8   1          
+   9   1          if (pin >= GPIO_PIN_COUNT)
+  10   1          {
+  11   2              return;
+  12   2          }
+  13   1          
+  14   1          reg_addr = s_gpio_pin_reg[pin];
+  15   1          
+  16   1          switch (mode)
+  17   1          {
+  18   2              case GPIO_MODE_INPUT:
+  19   2                  *(u8 xdata *)reg_addr = 0x01;
+  20   2                  break;
+  21   2      
+  22   2              case GPIO_MODE_OUTPUT:
+  23   2                  *(u8 xdata *)reg_addr = 0x00;
+  24   2                  break;
+  25   2      
+  26   2              case GPIO_MODE_INPUT_PULLUP:
+  27   2                  *(u8 xdata *)reg_addr = (1 << 7) | 1;
+  28   2                  break;
+  29   2      
+  30   2              case GPIO_MODE_INPUT_ANALOG:
+  31   2                  *(u8 xdata *)reg_addr = 0x01;
+  32   2                  break;
+  33   2                  
+  34   2              default:
+  35   2                  break;
+  36   2          }
+  37   1      }
+  38          
+  39          void GPIO_WritePin(GPIO_Pin_t pin, GPIO_Level_t level)
+  40          {
+  41   1          switch (level)
+  42   1          {
+  43   2              case GPIO_LEVEL_HIGH:
+  44   2                  P0 |= (1 << pin);
+  45   2                  break;
+  46   2                  
+  47   2              default:
+  48   2                  P0 &= ~(1 << pin);
+  49   2                  break;
+  50   2          }
+  51   1      }
+  52          
+  53          GPIO_Level_t GPIO_ReadPin(GPIO_Pin_t pin)
+  54          {
+  55   1          if ((P0 >> pin) & 0x01)
+C51 COMPILER V7.00  GPIO                                                                   09/29/2026 07:47:58 PAGE 2   
+
+  56   1          {
+  57   2              return GPIO_LEVEL_HIGH;
+  58   2          }
+  59   1          else
+  60   1          {
+  61   2              return GPIO_LEVEL_LOW;
+  62   2          }
+  63   1      }
+  64          
+  65          //void GPIO_TogglePin(GPIO_Pin_t pin)
+  66          //{
+  67          //    P0 ^= (1 << pin);
+  68          //}
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    107    ----
+   CONSTANT SIZE    =      6    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

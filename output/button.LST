@@ -1,0 +1,151 @@
+C51 COMPILER V7.00  BUTTON                                                                 09/29/2026 07:47:58 PAGE 1   
+
+
+C51 COMPILER V7.00, COMPILATION OF MODULE BUTTON
+OBJECT MODULE PLACED IN output\button.obj
+COMPILER INVOKED BY: E:\keil\C51\BIN\c51.exe source\button.c LARGE OBJECT(output\button.obj)
+
+stmt level    source
+
+   1          #include "button.h"
+   2          
+   3          static u8 s_button_state = 0;
+   4          static u16 s_press_counter = 0;
+   5          static u8 s_debounce_counter = 0;
+   6          static u8 s_last_raw_state = 1;
+   7          static volatile Button_Event_t s_button_event = BUTTON_EVENT_NONE;
+   8          
+   9          /**
+  10           * @brief  按键模块初始化
+  11           * @note   配置P0.0为输入模式（内部上拉）
+  12           *         使用INT0中断，下降沿触发
+  13           */
+  14          void Button_Init(void)
+  15          {
+  16   1          GPIO_Init(BUTTON_PIN, GPIO_MODE_INPUT_PULLUP);
+  17   1          IT0 = 1;
+  18   1          EX0 = 1;
+  19   1          
+  20   1          s_button_state = 0;
+  21   1          s_press_counter = 0;
+  22   1          s_debounce_counter = 0;
+  23   1          s_last_raw_state = 1;
+  24   1          s_button_event = BUTTON_EVENT_NONE;
+  25   1      }
+  26          
+  27          /**
+  28           * @brief  INT0中断服务程序 - 按键检测
+  29           * @note   向量号: INTERRUPT_VECTOR_BUTTON (0)
+  30           */
+  31          void Button_ISR(void) interrupt INTERRUPT_VECTOR_BUTTON
+  32          {
+  33   1          s_button_event = BUTTON_EVENT_SHORT_PRESS;
+  34   1      }
+  35          
+  36          /**
+  37           * @brief  获取按键事件
+  38           * @return 当前按键事件类型
+  39           */
+  40          Button_Event_t Button_GetEvent(void)
+  41          {
+  42   1          return s_button_event;
+  43   1      }
+  44          
+  45          /**
+  46           * @brief  清除按键事件
+  47           */
+  48          void Button_ClearEvent(void)
+  49          {
+  50   1          s_button_event = BUTTON_EVENT_NONE;
+  51   1      }
+  52          
+  53          /**
+  54           * @brief  查询按键当前是否被按下
+  55           * @return 1=按下, 0=释放
+C51 COMPILER V7.00  BUTTON                                                                 09/29/2026 07:47:58 PAGE 2   
+
+  56           */
+  57          //u8 Button_IsPressed(void)
+  58          //{
+  59          //    return (GPIO_ReadPin(BUTTON_PIN) == GPIO_LEVEL_LOW);
+  60          //}
+  61          
+  62          /**
+  63           * @brief  按键轮询函数（非阻塞，需1ms调用一次）
+  64           * @note   实现功能：
+  65           *         - 20ms软件消抖
+  66           *         - 长按/短按判定（阈值1.5秒）
+  67           *         - 状态机：释放→按下→事件→释放
+  68           */
+  69          void Button_Poll(void)
+  70          {
+  71   1          u8 current_raw_state;
+  72   1          
+  73   1          current_raw_state = GPIO_ReadPin(BUTTON_PIN);
+  74   1          
+  75   1          if (s_debounce_counter < BUTTON_DEBOUNCE_MS)
+  76   1          {
+  77   2              if (current_raw_state != s_last_raw_state)
+  78   2              {
+  79   3                  s_debounce_counter = 0;
+  80   3                  s_last_raw_state = current_raw_state;
+  81   3              }
+  82   2              else
+  83   2              {
+  84   3                  s_debounce_counter++;
+  85   3              }
+  86   2          }
+  87   1          
+  88   1          if (s_debounce_counter >= BUTTON_DEBOUNCE_MS)
+  89   1          {
+  90   2              switch (current_raw_state)
+  91   2              {
+  92   3                  case GPIO_LEVEL_LOW:
+  93   3                      if (s_button_state == 0)
+  94   3                      {
+  95   4                          s_button_state = 1;
+  96   4                          s_press_counter = 0;
+  97   4                      }
+  98   3                      else
+  99   3                      {
+ 100   4                          if (s_press_counter < 0xFFFF)
+ 101   4                          {
+ 102   5                              s_press_counter++;
+ 103   5                          }
+ 104   4                      }
+ 105   3                      break;
+ 106   3                      
+ 107   3                  default:
+ 108   3                      if (s_button_state == 1)
+ 109   3                      {
+ 110   4                          if (s_press_counter >= BUTTON_LONG_PRESS_MS)
+ 111   4                          {
+ 112   5                              s_button_event = BUTTON_EVENT_LONG_PRESS;
+ 113   5                          }
+ 114   4                          else
+ 115   4                          {
+ 116   5                              s_button_event = BUTTON_EVENT_SHORT_PRESS;
+ 117   5                          }
+C51 COMPILER V7.00  BUTTON                                                                 09/29/2026 07:47:58 PAGE 3   
+
+ 118   4                          s_button_state = 0;
+ 119   4                          s_press_counter = 0;
+ 120   4                      }
+ 121   3                      break;
+ 122   3              }
+ 123   2          }
+ 124   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    197    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      6    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
