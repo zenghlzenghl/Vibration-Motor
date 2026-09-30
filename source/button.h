@@ -15,6 +15,8 @@ void Button_Init(void);
 void Button_Poll(void);
 Button_Event_t Button_GetEvent(void);
 void Button_ClearEvent(void);
+bit Button_WokenFromStop(void);
+void Button_ClearWakeFlag(void);
 //u8 Button_IsPressed(void);
 
 #endif
