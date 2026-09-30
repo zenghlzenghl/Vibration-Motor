@@ -109,6 +109,7 @@ void App_HandlePowerOn(void)
  * @brief  处理按键事件
  * @param  event: 按键事件类型（长按/短按）
  * @note   事件处理逻辑：
+ *         - 充电中：按键无效，直接返回
  *         - 长按：开关机切换
  *           → 开机时：设为IDLE模式 + 振动50ms确认 + LED常亮
  *           → 关机时：关闭马达+LED + 进入STOP模式待机
@@ -123,6 +124,11 @@ static void Handle_ButtonEvent(Button_Event_t event)
     Motor_Mode_t next_mode;
     
     if (event == BUTTON_EVENT_NONE)
+    {
+        return;
+    }
+    
+    if (Power_GetChargerState() != CHARGER_STATE_NONE)
     {
         return;
     }
